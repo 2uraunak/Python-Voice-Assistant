@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant Studio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background: #030712; color: #f9fafb; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+        .hero { background: radial-gradient(circle at center, #1e1b4b 0%, #030712 100%); padding: 40px 0 20px; }
+        .orb-container { position: relative; width: 160px; height: 160px; margin: 30px auto; }
+        .pulsing-orb { width: 100%; height: 100%; border-radius: 50%; background: radial-gradient(circle, #818cf8 0%, #4338ca 70%, transparent 100%); box-shadow: 0 0 50px rgba(99, 102, 241, 0.6); animation: pulse 2.5s infinite ease-in-out; }
+        @keyframes pulse {
+            0% { transform: scale(0.92); opacity: 0.8; box-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+            50% { transform: scale(1.08); opacity: 1; box-shadow: 0 0 70px rgba(99, 102, 241, 0.9); }
+            100% { transform: scale(0.92); opacity: 0.8; box-shadow: 0 0 30px rgba(99, 102, 241, 0.4); }
+        }
+        .listening .pulsing-orb { background: radial-gradient(circle, #f43f5e 0%, #e11d48 70%, transparent 100%); box-shadow: 0 0 80px rgba(244, 63, 94, 0.9); }
+        .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; }
+        .chip { background: #1f2937; border: 1px solid #374151; color: #e5e7eb; border-radius: 20px; padding: 6px 14px; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; display: inline-block; margin: 4px; }
+        .chip:hover { background: #374151; color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="hero text-center flex-grow-1">
+        <div class="container py-4">
+            <span class="badge bg-indigo mb-2" style="background:#4f46e5; color:#ffffff;"><i class="fas fa-microphone-lines me-1"></i> Interactive Voice Studio</span>
+            <h1 class="fw-bold">AI Voice Assistant (Python)</h1>
+            <p class="text-secondary max-w-600 mx-auto">Speech-to-text recognition, Wikipedia query synthesis, and automated system commands.</p>
+
+            <div class="orb-container" id="orbContainer" onclick="toggleVoice()">
+                <div class="pulsing-orb"></div>
+            </div>
+
+            <button id="micBtn" class="btn btn-primary btn-lg px-4 mb-4" onclick="toggleVoice()">
+                <i class="fas fa-microphone me-2"></i><span id="btnText">Click to Speak</span>
+            </button>
+
+            <div class="max-w-600 mx-auto mb-4">
+                <div class="text-secondary small mb-2">Try saying or clicking:</div>
+                <div>
+                    <span class="chip" onclick="submitCmd('What is the time?')">What is the time?</span>
+                    <span class="chip" onclick="submitCmd('Who is Alan Turing?')">Who is Alan Turing?</span>
+                    <span class="chip" onclick="submitCmd('Tell me a joke')">Tell me a joke</span>
+                    <span class="chip" onclick="submitCmd('Open YouTube')">Open YouTube</span>
+                </div>
+            </div>
+
+            <!-- Dialogue Transcript -->
+            <div class="col-lg-8 mx-auto text-start">
+                <div class="card p-4">
+                    <h6 class="fw-bold text-secondary mb-3 border-bottom pb-2 border-secondary"><i class="fas fa-wave-square me-2 text-primary"></i>Interaction Transcript</h6>
+                    <div class="mb-3">
+                        <small class="text-secondary d-block">You Said:</small>
+                        <span class="fs-5 text-light fw-semibold" id="userSpeech">"Click microphone or enter command to start..."</span>
+                    </div>
+                    <div>
+                        <small class="text-secondary d-block">Assistant Response:</small>
+                        <span class="fs-5 text-info fw-semibold" id="assistantReply">"Ready and listening."</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('orbContainer').classList.add('listening');
+                document.getElementById('btnText').innerText = 'Listening... Speak Now';
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                submitCmd(transcript);
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('orbContainer').classList.remove('listening');
+                document.getElementById('btnText').innerText = 'Click to Speak';
+            };
+        }
+
+        function toggleVoice() {
+            if (!recognition) {
+                const manual = prompt('Microphone API not supported by browser. Enter command:');
+                if (manual) submitCmd(manual);
+                return;
+            }
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        async function submitCmd(cmd) {
+            document.getElementById('userSpeech').innerText = `"${cmd}"`;
+            document.getElementById('assistantReply').innerText = "Processing...";
+
+            const res = await fetch('/command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({command: cmd})
+            });
+            const data = await res.json();
+            document.getElementById('assistantReply').innerText = `"${data.response}"`;
+
+            // Text-to-speech synthesis
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(data.response);
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    </script>
+</body>
+</html>
